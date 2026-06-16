@@ -37,6 +37,7 @@ export default function FormModal({
 
   // Pocket form states
   const [warna, setWarna] = useState('blue');
+  const [targetSaldo, setTargetSaldo] = useState('');
 
   // Budget form states
   const [bulan, setBulan] = useState('');
@@ -79,6 +80,7 @@ export default function FormModal({
           setKategori(editItem.nama || ''); // Name stored in kategori state for convenience or separately
           setNominal(formatNumberWithDots(editItem.saldo_awal));
           setWarna(editItem.warna || 'blue');
+          setTargetSaldo(editItem.target_saldo ? formatNumberWithDots(editItem.target_saldo) : '');
         } else if (type === 'Budget') {
           setKategori(editItem.kategori || '');
           setNominal(formatNumberWithDots(editItem.nominal));
@@ -108,6 +110,7 @@ export default function FormModal({
         setPihak('');
         setPotongKantong(false);
         setKantongAsalId('');
+        setTargetSaldo('');
       }
     }
   }, [isOpen, editItem, type]);
@@ -228,6 +231,7 @@ export default function FormModal({
           nama: kategori, // Name stored in kategori state
           saldo_awal: rawNominal,
           warna,
+          target_saldo: targetSaldo ? getRawNumber(targetSaldo) : null,
         };
 
         if (editItem) {
@@ -565,6 +569,17 @@ export default function FormModal({
                   <option value="yellow">Kuning</option>
                   <option value="gray">Abu-Abu</option>
                 </select>
+              </div>
+
+              <div>
+                <p className="text-[11px] text-gray-500 mb-1 px-1 font-semibold">Target Saldo (Opsional - Tabungan Impian)</p>
+                <input
+                  type="text"
+                  placeholder="Target Saldo (misal: 10.000.000)"
+                  value={targetSaldo}
+                  onChange={(e) => setTargetSaldo(formatNumberWithDots(e.target.value))}
+                  className={inputClass}
+                />
               </div>
             </>
           )}

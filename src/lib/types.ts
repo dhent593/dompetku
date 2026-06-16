@@ -11,6 +11,7 @@ export interface Kantong {
   nama: string;
   saldo_awal: number;
   warna: string;
+  target_saldo: number | null;
   created_at: string;
 }
 

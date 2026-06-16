@@ -60,6 +60,7 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
   const [filterBulan, setFilterBulan] = useState('');
   const [filterTahun, setFilterTahun] = useState('');
   const [filterJenis, setFilterJenis] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Balance States
   const [pocketBalances, setPocketBalances] = useState<{ [key: string]: number }>({});
@@ -420,8 +421,52 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       const matchesTahun = filterTahun === '' || tDate.getFullYear() === parseInt(filterTahun);
       const matchesJenis = filterJenis === '' || t.jenis === filterJenis;
 
-      return matchesTab && matchesBulan && matchesTahun && matchesJenis;
+      const cleanQuery = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        cleanQuery === '' ||
+        (t.kategori || '').toLowerCase().includes(cleanQuery) ||
+        (t.keterangan || '').toLowerCase().includes(cleanQuery);
+
+      return matchesTab && matchesBulan && matchesTahun && matchesJenis && matchesSearch;
     });
+  };
+
+  const handleExportCSV = () => {
+    const filtered = getFilteredTransactions();
+    if (filtered.length === 0) {
+      alert('Tidak ada transaksi untuk diekspor!');
+      return;
+    }
+
+    const headers = ['Tanggal', 'Jenis', 'Kategori', 'Nominal', 'Kantong Asal', 'Kantong Tujuan', 'Keterangan'];
+    const rows = filtered.map((t) => {
+      const sourcePocket = pockets.find((p) => p.id === t.kantong_asal_id)?.nama || '';
+      const targetPocket = pockets.find((p) => p.id === t.kantong_tujuan_id)?.nama || '';
+      return [
+        t.tanggal,
+        t.jenis,
+        t.kategori,
+        t.nominal,
+        sourcePocket,
+        targetPocket,
+        t.keterangan || '-',
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `dompetku_transaksi_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Budget summaries
@@ -458,6 +503,186 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
     if (!confirm('Apakah Anda yakin ingin keluar dari aplikasi?')) return;
     await supabase.auth.signOut();
     onLogout();
+  };
+
+  const renderBudgetTab = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const categorySpending: { [key: string]: number } = {};
+    let totalMonthlySpend = 0;
+
+    transactions.forEach((t) => {
+      const tDate = new Date(t.tanggal);
+      if (t.jenis === 'Pengeluaran' && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+        const nom = Number(t.nominal);
+        categorySpending[t.kategori] = (categorySpending[t.kategori] || 0) + nom;
+        totalMonthlySpend += nom;
+      }
+    });
+
+    const categoryColors: { [key: string]: string } = {
+      'Makan': '#F43F5E',
+      'Jajan': '#F59E0B',
+      'Self Reward': '#8B5CF6',
+      'Beli Barang': '#3B82F6',
+      'Hiburan': '#A855F7',
+      'Transport': '#0EA5E9',
+      'Lainnya': '#64748B',
+    };
+
+    const defaultColors = ['#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
+
+    const sortedCategories = Object.keys(categorySpending)
+      .map((cat, idx) => {
+        const spend = categorySpending[cat];
+        const color = categoryColors[cat] || defaultColors[idx % defaultColors.length];
+        return { category: cat, spend, color };
+      })
+      .sort((a, b) => b.spend - a.spend);
+
+    let accumulatedPercent = 0;
+    const segments = sortedCategories.map((s) => {
+      const percent = totalMonthlySpend > 0 ? (s.spend / totalMonthlySpend) * 100 : 0;
+      const strokeDasharray = `${(percent / 100) * 314.16} 314.16`;
+      const strokeDashoffset = `${- (accumulatedPercent / 100) * 314.16}`;
+      accumulatedPercent += percent;
+      return {
+        ...s,
+        percent,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+
+    return (
+      <div className="px-6 pt-2 animate-[slideUp_0.22s_cubic-bezier(0.16,1,0.3,1)_forwards]">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-extrabold text-gray-900">Budgeting</h2>
+          <button
+            onClick={() => handleOpenForm('Budget')}
+            className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md hover:bg-indigo-700 transition"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Diagram Donut Analisis */}
+        {totalMonthlySpend > 0 && (
+          <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 mb-6 flex flex-col items-center">
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-4 align-self-start self-start">
+              Analisis Pengeluaran Bulan Ini
+            </p>
+            <div className="flex flex-row items-center gap-4 w-full justify-between">
+              <div className="relative w-[110px] h-[110px] flex items-center justify-center flex-shrink-0">
+                <svg width="110" height="110" viewBox="0 0 120 120" className="-rotate-90">
+                  <circle cx="60" cy="60" r="50" fill="transparent" stroke="#F1F5F9" strokeWidth="12" />
+                  {segments.map((seg, idx) => (
+                    <circle
+                      key={idx}
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      fill="transparent"
+                      stroke={seg.color}
+                      strokeWidth="12"
+                      strokeDasharray={seg.strokeDasharray}
+                      strokeDashoffset={seg.strokeDashoffset}
+                      strokeLinecap="round"
+                      className="transition-all duration-700 ease-out"
+                    />
+                  ))}
+                </svg>
+                <div className="absolute text-center select-none pointer-events-none max-w-[80px]">
+                  <p className="text-[8px] font-extrabold uppercase tracking-widest text-gray-400">Total</p>
+                  <p className="text-[10px] font-extrabold text-gray-800 truncate mt-0.5">
+                    {formatRp(totalMonthlySpend)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 flex-grow max-w-[200px] w-full text-[10px] overflow-y-auto max-h-[120px] hide-scrollbar">
+                {segments.map((seg, idx) => (
+                  <div key={idx} className="flex items-center justify-between font-bold">
+                    <div className="flex items-center gap-2 truncate">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: seg.color }}></div>
+                      <span className="text-gray-600 truncate max-w-[75px]">{seg.category}</span>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-gray-900 font-extrabold">{seg.percent.toFixed(0)}%</span>
+                      <span className="text-[8px] text-gray-400 block">{formatRp(seg.spend)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-5">
+          {budgets.length > 0 ? (
+            budgets.map((b) => {
+              const spend = getCategorySpend(b.kategori);
+              const target = b.nominal;
+              const persen = Math.min((spend / target) * 100, 100);
+
+              const progressBarColor =
+                persen > 90
+                  ? 'bg-rose-500'
+                  : persen > 70
+                  ? 'bg-amber-500'
+                  : 'bg-indigo-600';
+
+              return (
+                <div
+                  key={b.id}
+                  className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 hover:shadow transition"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-bold text-gray-900 text-sm">{b.kategori}</h4>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="text-gray-300 hover:text-indigo-600 transition"
+                        onClick={() => handleOpenForm('Budget', b)}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between text-[10px] text-gray-500 mb-2 font-semibold">
+                    <span>Terpakai: {formatRp(spend)}</span>
+                    <span>
+                      Sisa:{' '}
+                      <strong
+                        className={persen > 90 ? 'text-rose-500' : 'text-emerald-500'}
+                      >
+                        {formatRp(target - spend)}
+                      </strong>
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className={`${progressBarColor} h-2.5 rounded-full transition-all duration-500`}
+                      style={{ width: `${persen}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-[9px] text-right text-gray-400 mt-1">
+                    Dari Budget: {formatRp(target)} (Bulan: {b.bulan}/{b.tahun})
+                  </p>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-gray-400 text-center py-12">
+              Belum ada budget untuk bulan ini.
+            </p>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -545,6 +770,9 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                 pockets.map((p) => {
                   const balance = pocketBalances[p.id] || 0;
                   const bgClass = pocketColorMap[p.warna] || 'bg-slate-800';
+                  const target = p.target_saldo ? Number(p.target_saldo) : 0;
+                  const percent = target > 0 ? Math.min((balance / target) * 100, 100).toFixed(0) : '0';
+
                   return (
                     <div
                       key={p.id}
@@ -556,6 +784,18 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                         {p.nama}
                       </p>
                       <p className="text-sm font-bold">{formatRp(balance)}</p>
+
+                      {target > 0 && (
+                        <div className="mt-2.5">
+                          <div className="flex justify-between text-[8px] opacity-90 mb-0.5 font-bold">
+                            <span>Target: {percent}%</span>
+                            <span className="truncate max-w-[70px]">/ {formatRp(target)}</span>
+                          </div>
+                          <div className="w-full bg-white/20 rounded-full h-1 overflow-hidden">
+                            <div className="bg-white h-1 rounded-full transition-all duration-500" style={{ width: `${percent}%` }}></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -711,9 +951,22 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
 
             {/* Custom filters */}
             <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 mb-6 space-y-3">
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-1">
-                Filter Kustom
-              </p>
+              <div className="flex justify-between items-center px-1">
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                  Filter Kustom
+                </p>
+              </div>
+
+              <div>
+                <input
+                  type="text"
+                  placeholder="Cari berdasarkan keterangan/kategori..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold focus:bg-white focus:border-indigo-600 outline-none transition"
+                />
+              </div>
+
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-[9px] font-bold text-gray-400 uppercase px-1">Bulan</label>
@@ -765,14 +1018,22 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                   </select>
                 </div>
               </div>
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-between items-center pt-1 px-1">
+                <button
+                  onClick={handleExportCSV}
+                  type="button"
+                  className="text-[10px] text-emerald-600 font-extrabold hover:text-emerald-800 transition"
+                >
+                  Ekspor CSV
+                </button>
                 <button
                   onClick={() => {
                     setFilterBulan('');
                     setFilterTahun('');
                     setFilterJenis('');
+                    setSearchQuery('');
                   }}
-                  className="text-[10px] text-indigo-600 font-extrabold hover:text-indigo-800 transition px-1"
+                  className="text-[10px] text-indigo-600 font-extrabold hover:text-indigo-800 transition"
                 >
                   Reset Filter
                 </button>
@@ -873,81 +1134,7 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
         )}
 
         {/* TABS 3: BUDGETING */}
-        {activeTab === 'budget' && (
-          <div className="px-6 pt-2 animate-[slideUp_0.22s_cubic-bezier(0.16,1,0.3,1)_forwards]">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-extrabold text-gray-900">Budgeting</h2>
-              <button
-                onClick={() => handleOpenForm('Budget')}
-                className="bg-indigo-600 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-md hover:bg-indigo-700 transition"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              {budgets.length > 0 ? (
-                budgets.map((b) => {
-                  const spend = getCategorySpend(b.kategori);
-                  const target = b.nominal;
-                  const persen = Math.min((spend / target) * 100, 100);
-
-                  const progressBarColor =
-                    persen > 90
-                      ? 'bg-rose-500'
-                      : persen > 70
-                      ? 'bg-amber-500'
-                      : 'bg-indigo-600';
-
-                  return (
-                    <div
-                      key={b.id}
-                      className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 hover:shadow transition"
-                    >
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold text-gray-900 text-sm">{b.kategori}</h4>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="text-gray-300 hover:text-indigo-600 transition"
-                            onClick={() => handleOpenForm('Budget', b)}
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between text-[10px] text-gray-500 mb-2 font-semibold">
-                        <span>Terpakai: {formatRp(spend)}</span>
-                        <span>
-                          Sisa:{' '}
-                          <strong
-                            className={persen > 90 ? 'text-rose-500' : 'text-emerald-500'}
-                          >
-                            {formatRp(target - spend)}
-                          </strong>
-                        </span>
-                      </div>
-
-                      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                        <div
-                          className={`${progressBarColor} h-2.5 rounded-full transition-all duration-500`}
-                          style={{ width: `${persen}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-[9px] text-right text-gray-400 mt-1">
-                        Dari Budget: {formatRp(target)} (Bulan: {b.bulan}/{b.tahun})
-                      </p>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-xs text-gray-400 text-center py-12">
-                  Belum ada budget untuk bulan ini.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+        {activeTab === 'budget' && renderBudgetTab()}
 
         {/* TABS 4: FINANSIAL LAINNYA (HUTANG & ASET) */}
         {activeTab === 'lainnya' && (

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.kantong (
   nama TEXT NOT NULL,
   saldo_awal BIGINT NOT NULL DEFAULT 0,
   warna TEXT NOT NULL DEFAULT 'blue',
+  target_saldo BIGINT DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
