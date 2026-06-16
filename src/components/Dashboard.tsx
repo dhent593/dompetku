@@ -1217,10 +1217,10 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       {bottomSheetOpen && (
         <div className="absolute inset-0 z-100 flex items-end justify-center">
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setBottomSheetOpen(false)}
           />
-          <div className="relative w-full max-w-[480px] bg-white rounded-t-[30px] p-6 shadow-2xl z-110 transform animate-[slideUp_0.25s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+          <div className="relative w-full max-w-[480px] bg-white rounded-t-[30px] p-6 shadow-2xl z-110 animate-bottom-sheet-up">
             <div className="w-16 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
             <div className="grid grid-cols-3 gap-4 mb-4 select-none">
               <div
@@ -1272,10 +1272,10 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       {cicilanModalOpen && activeDebt && (
         <div className="absolute inset-0 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setCicilanModalOpen(false)}
           />
-          <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl z-110 flex flex-col transform animate-[slideUp_0.25s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+          <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl z-110 flex flex-col animate-modal-scale-up">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-xl text-gray-900">Bayar Cicilan</h3>
               <button
@@ -1368,10 +1368,10 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       {profileModalOpen && (
         <div className="absolute inset-0 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setProfileModalOpen(false)}
           />
-          <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl z-110 flex flex-col max-h-[85vh] overflow-y-auto hide-scrollbar transform animate-[slideUp_0.25s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+          <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl z-110 flex flex-col max-h-[85vh] overflow-y-auto hide-scrollbar animate-modal-scale-up">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-xl text-gray-900">Pengaturan Profil</h3>
               <button
@@ -1479,7 +1479,7 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       )}
 
       {/* BOTTOM NAVIGATION BAR */}
-      <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md h-[80px] flex justify-between items-center px-6 shadow-lg border-t border-gray-100 z-50 select-none pb-safe-bottom">
+      <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md bottom-nav-safe flex justify-between items-center px-6 shadow-lg border-t border-gray-100 z-50 select-none">
         <button
           onClick={() => setActiveTab('beranda')}
           className={`flex flex-col items-center justify-center flex-1 py-2 outline-none transition ${

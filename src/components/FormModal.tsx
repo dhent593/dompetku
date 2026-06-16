@@ -349,10 +349,10 @@ export default function FormModal({
   return (
     <div className="absolute inset-0 z-100 flex items-end sm:items-center justify-center p-0 sm:p-4 select-none">
       {/* Overlay backdrop */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-fade-in" onClick={onClose} />
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-y-auto hide-scrollbar z-110 transform animate-[slideUp_0.25s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
+      <div className="relative w-full max-w-[480px] sm:max-w-[400px] bg-white rounded-t-[30px] sm:rounded-[24px] p-6 shadow-2xl flex flex-col max-h-[85vh] overflow-y-auto hide-scrollbar z-110 animate-modal-scale-up">
         <div className="flex justify-between items-center mb-6">
           <h3 className="font-extrabold text-xl text-gray-900">
             {editItem ? 'Edit' : 'Catat'} {type === 'Transfer' ? 'Pindah Dana' : type}
