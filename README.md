@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dompetku - Digital Wallet Web Application
 
-## Getting Started
+Aplikasi pencatatan keuangan pribadi multi-user yang cepat, ringan, dan elegan. Proyek ini dimigrasi dari Google Apps Script ke **Next.js (App Router)** dan **Supabase** sebagai basis datanya, siap untuk dihosting di **Vercel**.
 
-First, run the development server:
+---
 
+## 🚀 Fitur Utama
+- **Autentikasi Multi-User**: Login dan register berbasis username menggunakan Supabase Auth (simulasi email virtual).
+- **Dasbor Finansial Real-time**: Menampilkan total saldo gabungan seluruh kantong, pemasukan, dan pengeluaran bulan berjalan.
+- **Kantong Dana (Multi-Wallet)**: Membuat beberapa saku dana (BCA, GoPay, Tunai, dll) dengan warna khusus.
+- **Pencatatan Transaksi Dinamis**: Pemasukan, pengeluaran, dan transfer internal antar kantong.
+- **Budgeting Kategori**: Membatasi pengeluaran bulanan per kategori dengan progress bar visual (merah/kuning/indigo).
+- **Hutang & Piutang**: Mencatat tagihan aktif beserta alur cicilan dan pelunasan yang memotong/menambah saldo kantong otomatis.
+- **Aset Berharga**: Pengelompokan kepemilikan aset (Emas, Investasi, Properti, dll) menggunakan layout accordion.
+
+---
+
+## 🛠️ Tech Stack
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS
+- **Icon**: Lucide React
+- **Backend & Database**: Supabase (PostgreSQL, Row Level Security, Auth)
+- **Hosting**: Vercel
+
+---
+
+## 📦 Panduan Pengaturan Lokal
+
+### 1. Klon Repositori & Instal Dependensi
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Pengaturan Berkas Lingkungan (Environment Variables)
+Salin berkas `.env.local.example` menjadi `.env.local`:
+```bash
+cp .env.local.example .env.local
+```
+Buka `.env.local` dan masukkan kredensial API Supabase Anda:
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<project-id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<kunci-anon-public-anda>
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Migrasi Database di Supabase
+1. Buka dashboard proyek **Supabase** Anda.
+2. Pilih menu **SQL Editor** pada panel kiri.
+3. Klik **New query** (Kueri baru) dan tempelkan seluruh isi dari berkas [`supabase-schema.sql`](./supabase-schema.sql).
+4. Klik **Run** untuk membuat semua tabel, relasi, indeks, aturan RLS, dan trigger profil/kantong otomatis.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Jalankan Server Pengembangan
+```bash
+npm run dev
+```
+Buka browser dan akses [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🌐 Panduan Deploy ke Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Hubungkan repositori Git Anda (GitHub/GitLab) ke akun Vercel.
+2. Buat proyek baru di Vercel dan hubungkan ke repositori tersebut.
+3. Di bagian **Environment Variables** proyek Vercel, tambahkan dua kunci berikut:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+4. Klik **Deploy**. Vercel akan otomatis melakukan kompilasi build production dan merilisnya secara publik.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 📄 Skema Database
+Database didesain dengan tingkat keamanan tinggi menggunakan **Row-Level Security (RLS)** PostgreSQL. Pengguna hanya dapat membaca dan memodifikasi data milik mereka sendiri berdasarkan kecocokan ID pengguna (`auth.uid() = user_id`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Skema tabel selengkapnya dapat dipelajari di berkas [`supabase-schema.sql`](./supabase-schema.sql).
