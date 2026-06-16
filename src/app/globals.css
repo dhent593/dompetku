@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --background: #CBD5E1;
+  --foreground: #0F172A;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app-container {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: #F8FAFC;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+/* Hide scrollbar */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
