@@ -51,6 +51,7 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
 
   // UI State
   const [activeTab, setActiveTab] = useState<'beranda' | 'transaksi' | 'budget' | 'lainnya'>('beranda');
+  const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [submittingCicilan, setSubmittingCicilan] = useState(false);
@@ -488,6 +489,18 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
       .reduce((sum, t) => sum + Number(t.nominal), 0);
   };
 
+  const getBudgetTransactions = (category: string, month: number, year: number) => {
+    return transactions.filter((t) => {
+      const tDate = new Date(t.tanggal);
+      return (
+        t.jenis === 'Pengeluaran' &&
+        t.kategori === category &&
+        (tDate.getMonth() + 1) === month &&
+        tDate.getFullYear() === year
+      );
+    });
+  };
+
   // Debt/Piutang calculations
   const totalActiveDebt = debts
     .filter((d) => d.status === 'Belum Lunas' && d.jenis === 'Hutang')
@@ -637,14 +650,18 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
               return (
                 <div
                   key={b.id}
-                  className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 hover:shadow transition"
+                  onClick={() => setExpandedBudgetId(expandedBudgetId === b.id ? null : b.id)}
+                  className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 hover:shadow hover:border-gray-200 transition cursor-pointer select-none"
                 >
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-bold text-gray-900 text-sm">{b.kategori}</h4>
                     <div className="flex items-center gap-2">
                       <button
-                        className="text-gray-300 hover:text-indigo-600 transition"
-                        onClick={() => handleOpenForm('Budget', b)}
+                        className="text-gray-300 hover:text-indigo-600 transition p-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenForm('Budget', b);
+                        }}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -669,9 +686,54 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                       style={{ width: `${persen}%` }}
                     ></div>
                   </div>
-                  <p className="text-[9px] text-right text-gray-400 mt-1">
-                    Dari Budget: {formatRp(target)} (Bulan: {b.bulan}/{b.tahun})
-                  </p>
+                  <div className="flex justify-between items-center mt-2.5">
+                    <span className="text-[8px] text-indigo-500 font-extrabold uppercase tracking-wide">
+                      {expandedBudgetId === b.id ? 'Klik untuk Tutup Detail' : 'Klik untuk Detail Transaksi'}
+                    </span>
+                    <p className="text-[9px] text-gray-400">
+                      Dari Budget: {formatRp(target)} (Bulan: {b.bulan}/{b.tahun})
+                    </p>
+                  </div>
+
+                  {expandedBudgetId === b.id && (
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-4 pt-4 border-t border-gray-100 animate-[slideUp_0.18s_cubic-bezier(0.16,1,0.3,1)_forwards] cursor-default"
+                    >
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2.5">
+                        Daftar Transaksi Bulan Ini:
+                      </p>
+                      <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 hide-scrollbar">
+                        {getBudgetTransactions(b.kategori, b.bulan, b.tahun).length > 0 ? (
+                          getBudgetTransactions(b.kategori, b.bulan, b.tahun).map((t) => {
+                            const sourcePocket = pockets.find((p) => p.id === t.kantong_asal_id)?.nama || '';
+                            return (
+                              <div
+                                key={t.id}
+                                className="flex justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/80 hover:bg-slate-100/50 transition duration-150"
+                              >
+                                <div className="min-w-0 flex-1 pr-2">
+                                  <p className="text-xs font-bold text-gray-800 truncate">
+                                    {t.keterangan || t.kategori}
+                                  </p>
+                                  <p className="text-[9px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">
+                                    {t.tanggal} • {sourcePocket}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-bold text-rose-500 flex-shrink-0">
+                                  -{formatRp(t.nominal)}
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[10px] text-gray-400 font-bold text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                            Belum ada pengeluaran untuk budget ini.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
