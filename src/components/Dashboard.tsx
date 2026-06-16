@@ -1041,7 +1041,10 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
             </div>
 
             {/* Full transactions list */}
-            <div className="space-y-3">
+            <div
+              key={`${timeFilter}-${filterBulan}-${filterTahun}-${filterJenis}-${searchQuery}`}
+              className="space-y-3 animate-[slideUp_0.15s_cubic-bezier(0.16,1,0.3,1)_forwards]"
+            >
               {getFilteredTransactions().length > 0 ? (
                 getFilteredTransactions().map((t) => {
                   const isMasuk = t.jenis === 'Pemasukan';
