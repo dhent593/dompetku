@@ -97,3 +97,13 @@ body {
   animation: bottomSheetUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes jiggle {
+  0% { transform: rotate(-0.5deg); }
+  50% { transform: rotate(0.5deg); }
+  100% { transform: rotate(-0.5deg); }
+}
+
+.animate-jiggle {
+  animation: jiggle 0.15s infinite ease-in-out;
+}
+

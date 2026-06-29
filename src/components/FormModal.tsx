@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Kantong } from '../lib/types';
+import { Kantong, Kategori } from '../lib/types';
 import { X, Trash2, Loader2 } from 'lucide-react';
 
 interface FormModalProps {
@@ -10,6 +10,8 @@ interface FormModalProps {
   onClose: () => void;
   type: string; // Pemasukan, Pengeluaran, Transfer, Kantong, Budget, Hutang, Aset
   pockets: Kantong[];
+  categories: Kategori[];
+  pocketBalances: { [key: string]: number };
   editItem?: any;
   userId: string;
   onSaveSuccess: () => void;
@@ -20,6 +22,8 @@ export default function FormModal({
   onClose,
   type,
   pockets,
+  categories = [],
+  pocketBalances = {},
   editItem,
   userId,
   onSaveSuccess,
@@ -48,9 +52,17 @@ export default function FormModal({
   const [potongKantong, setPotongKantong] = useState(false);
   const [kantongAsalId, setKantongAsalId] = useState('');
 
+  // New features states
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isManualAsetNama, setIsManualAsetNama] = useState(false);
+  const [selectedPocketName, setSelectedPocketName] = useState('');
+
   useEffect(() => {
     setErrorMsg('');
     setLoading(false);
+    setIsNewCategory(false);
+    setNewCategoryName('');
 
     if (isOpen) {
       const today = new Date().toISOString().split('T')[0];
@@ -96,6 +108,20 @@ export default function FormModal({
           setKeterangan(editItem.nama || ''); // asset name
           setNominal(formatNumberWithDots(editItem.nilai));
           setTanggal(editItem.keterangan || ''); // custom notes
+
+          if (editItem.kategori === 'Tabungan & Simpanan') {
+            const pocketExists = pockets.some(p => p.nama === editItem.nama);
+            if (pocketExists) {
+              setSelectedPocketName(editItem.nama);
+              setIsManualAsetNama(false);
+            } else {
+              setSelectedPocketName('__NONE__');
+              setIsManualAsetNama(true);
+            }
+          } else {
+            setIsManualAsetNama(true);
+            setSelectedPocketName('');
+          }
         }
       } else {
         // Reset states for adding
@@ -111,9 +137,11 @@ export default function FormModal({
         setPotongKantong(false);
         setKantongAsalId('');
         setTargetSaldo('');
+        setIsManualAsetNama(false);
+        setSelectedPocketName('');
       }
     }
-  }, [isOpen, editItem, type]);
+  }, [isOpen, editItem, type, pockets]);
 
   if (!isOpen) return null;
 
@@ -181,6 +209,27 @@ export default function FormModal({
     setLoading(true);
 
     try {
+      // 0. Handle custom category creation
+      let finalKategori = kategori;
+      if (isNewCategory && (type === 'Pemasukan' || type === 'Pengeluaran' || type === 'Budget')) {
+        finalKategori = newCategoryName.trim();
+        if (!finalKategori) {
+          throw new Error('Nama kategori baru tidak boleh kosong!');
+        }
+
+        const saveJenis = type === 'Budget' ? 'Pengeluaran' : (type === 'Pemasukan' ? 'Pemasukan' : 'Pengeluaran');
+        const alreadyExists = categories.some(
+          (c) => c.jenis === saveJenis && c.nama_kategori.toLowerCase() === finalKategori.toLowerCase()
+        );
+
+        if (!alreadyExists) {
+          const { error: catErr } = await supabase
+            .from('kategori')
+            .insert([{ user_id: userId, jenis: saveJenis, nama_kategori: finalKategori }]);
+          if (catErr) throw catErr;
+        }
+      }
+
       if (type === 'Pemasukan' || type === 'Pengeluaran') {
         const pocketId = kantong;
         if (!pocketId) throw new Error('Silakan pilih kantong!');
@@ -189,7 +238,7 @@ export default function FormModal({
           user_id: userId,
           jenis: type,
           nominal: rawNominal,
-          kategori,
+          kategori: finalKategori,
           tanggal,
           keterangan: keterangan || '-',
           kantong_asal_id: type === 'Pengeluaran' ? pocketId : null,
@@ -244,7 +293,7 @@ export default function FormModal({
       } else if (type === 'Budget') {
         const payload: any = {
           user_id: userId,
-          kategori,
+          kategori: finalKategori,
           bulan: parseInt(bulan),
           tahun: parseInt(tahun),
           nominal: rawNominal,
@@ -297,19 +346,24 @@ export default function FormModal({
               kantong_asal_id: kantongAsalId,
               kategori: 'Lainnya',
               tanggal: new Date().toISOString().split('T')[0],
-              keterangan: `Pemberian Piutang ke: ${pihak}`,
+              keterangan: `Pemberian Piutang ke: ${pihak} [Ref: ${data[0].id}]`,
             };
             const { error: transErr } = await supabase.from('transaksi').insert([transPayload]);
             if (transErr) throw transErr;
           }
         }
       } else if (type === 'Aset') {
+        let finalAsetNama = keterangan;
+        if (kategori === 'Tabungan & Simpanan' && !isManualAsetNama) {
+          finalAsetNama = selectedPocketName;
+        }
+
         const payload: any = {
           user_id: userId,
           kategori,
-          nama: keterangan, // Name stored in keterangan
+          nama: finalAsetNama,
           nilai: rawNominal,
-          keterangan: tanggal, // Custom notes in tanggal field for Aset
+          keterangan: tanggal, // Custom notes
         };
 
         if (editItem) {
@@ -329,7 +383,7 @@ export default function FormModal({
               kantong_asal_id: kantongAsalId,
               kategori: 'Lainnya',
               tanggal: new Date().toISOString().split('T')[0],
-              keterangan: `Pembelian Aset: ${keterangan}`,
+              keterangan: `Pembelian Aset: ${finalAsetNama}`,
             };
             const { error: transErr } = await supabase.from('transaksi').insert([transPayload]);
             if (transErr) throw transErr;
@@ -345,6 +399,32 @@ export default function FormModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const getCategoryOptions = () => {
+    const defaults = type === 'Pemasukan'
+      ? ['Gaji', 'Investasi', 'Freelance', 'Hadiah']
+      : ['Makan', 'Jajan', 'Self Reward', 'Beli Barang', 'Hiburan', 'Transport'];
+    
+    const transJenis = type === 'Pemasukan' ? 'Pemasukan' : 'Pengeluaran';
+    const customs = categories
+      .filter((c) => c.jenis === transJenis)
+      .map((c) => c.nama_kategori);
+      
+    const combined = Array.from(new Set([...defaults, ...customs]));
+    combined.push('Lainnya');
+    return combined;
+  };
+
+  const getBudgetCategoryOptions = () => {
+    const defaults = ['Makan', 'Jajan', 'Self Reward', 'Beli Barang', 'Hiburan', 'Transport'];
+    const customs = categories
+      .filter((c) => c.jenis === 'Pengeluaran')
+      .map((c) => c.nama_kategori);
+      
+    const combined = Array.from(new Set([...defaults, ...customs]));
+    combined.push('Lainnya');
+    return combined;
   };
 
   const inputClass =
@@ -403,35 +483,55 @@ export default function FormModal({
               </div>
 
               <div>
-                <select
-                  value={kategori}
-                  onChange={(e) => setKategori(e.target.value)}
-                  className={inputClass}
-                  required
-                >
-                  <option value="" disabled>
-                    Pilih Kategori
-                  </option>
-                  {type === 'Pemasukan' ? (
-                    <>
-                      <option value="Gaji">Gaji</option>
-                      <option value="Investasi">Investasi</option>
-                      <option value="Freelance">Freelance</option>
-                      <option value="Hadiah">Hadiah</option>
-                      <option value="Lainnya">Lainnya</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="Makan">Makan</option>
-                      <option value="Jajan">Jajan</option>
-                      <option value="Self Reward">Self Reward</option>
-                      <option value="Beli Barang">Beli Barang</option>
-                      <option value="Hiburan">Hiburan</option>
-                      <option value="Transport">Transport</option>
-                      <option value="Lainnya">Lainnya</option>
-                    </>
-                  )}
-                </select>
+                {isNewCategory ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nama Kategori Baru"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="flex-grow p-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium outline-none focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNewCategory(false);
+                        setNewCategoryName('');
+                        setKategori('');
+                      }}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 rounded-2xl font-bold text-xs"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={kategori}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__NEW_CATEGORY__') {
+                        setIsNewCategory(true);
+                      } else {
+                        setKategori(val);
+                      }
+                    }}
+                    className={inputClass}
+                    required
+                  >
+                    <option value="" disabled>
+                      Pilih Kategori
+                    </option>
+                    {getCategoryOptions().map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__NEW_CATEGORY__" className="text-indigo-600 font-bold">
+                      + Tambah Kategori Baru...
+                    </option>
+                  </select>
+                )}
               </div>
 
               <div>
@@ -588,23 +688,55 @@ export default function FormModal({
           {type === 'Budget' && (
             <>
               <div>
-                <select
-                  value={kategori}
-                  onChange={(e) => setKategori(e.target.value)}
-                  className={inputClass}
-                  required
-                >
-                  <option value="" disabled>
-                    Pilih Kategori Budget
-                  </option>
-                  <option value="Makan">Makan</option>
-                  <option value="Jajan">Jajan</option>
-                  <option value="Self Reward">Self Reward</option>
-                  <option value="Beli Barang">Beli Barang</option>
-                  <option value="Hiburan">Hiburan</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Lainnya">Lainnya</option>
-                </select>
+                {isNewCategory ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Nama Kategori Baru"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      className="flex-grow p-4 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium outline-none focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNewCategory(false);
+                        setNewCategoryName('');
+                        setKategori('');
+                      }}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 rounded-2xl font-bold text-xs"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={kategori}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '__NEW_CATEGORY__') {
+                        setIsNewCategory(true);
+                      } else {
+                        setKategori(val);
+                      }
+                    }}
+                    className={inputClass}
+                    required
+                  >
+                    <option value="" disabled>
+                      Pilih Kategori Budget
+                    </option>
+                    {getBudgetCategoryOptions().map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__NEW_CATEGORY__" className="text-indigo-600 font-bold">
+                      + Tambah Kategori Baru...
+                    </option>
+                  </select>
+                )}
               </div>
 
               <div>
@@ -733,7 +865,19 @@ export default function FormModal({
               <div>
                 <select
                   value={kategori}
-                  onChange={(e) => setKategori(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setKategori(val);
+                    if (val === 'Tabungan & Simpanan') {
+                      setIsManualAsetNama(false);
+                      setSelectedPocketName('');
+                      setKeterangan('');
+                      setNominal('');
+                    } else {
+                      setIsManualAsetNama(true);
+                      setKeterangan('');
+                    }
+                  }}
                   className={inputClass}
                   required
                 >
@@ -748,16 +892,63 @@ export default function FormModal({
                 </select>
               </div>
 
-              <div>
-                <input
-                  type="text"
-                  placeholder="Nama Aset (Emas, Saham, dll)"
-                  value={keterangan} // mapped to keterangan
-                  onChange={(e) => setKeterangan(e.target.value)}
-                  className={inputClass}
-                  required
-                />
-              </div>
+              {kategori === 'Tabungan & Simpanan' ? (
+                <>
+                  <div>
+                    <p className="text-[11px] text-gray-500 mb-1 px-1 font-semibold">Pilih Kantong Uang</p>
+                    <select
+                      value={selectedPocketName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedPocketName(val);
+                        if (val === '__NONE__') {
+                          setIsManualAsetNama(true);
+                          setKeterangan('');
+                          setNominal('');
+                        } else {
+                          setIsManualAsetNama(false);
+                          setKeterangan(val); // mapped to name
+                          // find pocket balance
+                          const pocket = pockets.find(p => p.nama === val);
+                          const balance = pocket ? (pocketBalances[pocket.id] || 0) : 0;
+                          setNominal(formatNumberWithDots(balance));
+                        }
+                      }}
+                      className={inputClass}
+                      required
+                    >
+                      <option value="" disabled>Pilih Kantong</option>
+                      {pockets.map(p => (
+                        <option key={p.id} value={p.nama}>{p.nama}</option>
+                      ))}
+                      <option value="__NONE__">+ Input Manual (Bukan dari Kantong)</option>
+                    </select>
+                  </div>
+                  {isManualAsetNama && (
+                    <div className="animate-[slideDown_0.2s_ease-out_forwards]">
+                      <input
+                        type="text"
+                        placeholder="Nama Tabungan (cth: Nabung 5k)"
+                        value={keterangan}
+                        onChange={(e) => setKeterangan(e.target.value)}
+                        className={inputClass}
+                        required
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Nama Aset (Emas, Saham, dll)"
+                    value={keterangan} // mapped to name
+                    onChange={(e) => setKeterangan(e.target.value)}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <input
@@ -765,8 +956,13 @@ export default function FormModal({
                   placeholder="Estimasi Nilai (Rp)"
                   value={nominal}
                   onChange={handleNominalInput}
-                  className={inputClass}
+                  className={`${inputClass} ${
+                    kategori === 'Tabungan & Simpanan' && !isManualAsetNama
+                      ? 'bg-gray-100 cursor-not-allowed font-bold text-gray-700'
+                      : ''
+                  }`}
                   required
+                  readOnly={kategori === 'Tabungan & Simpanan' && !isManualAsetNama}
                 />
               </div>
 
@@ -774,13 +970,13 @@ export default function FormModal({
                 <input
                   type="text"
                   placeholder="Keterangan Tambahan"
-                  value={tanggal} // mapped to tanggal state
+                  value={tanggal} // mapped to notes
                   onChange={(e) => setTanggal(e.target.value)}
                   className={inputClass}
                 />
               </div>
 
-              {!editItem && (
+              {!editItem && kategori !== 'Tabungan & Simpanan' && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 mt-2 px-1">
                     <input

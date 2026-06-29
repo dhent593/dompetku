@@ -12,6 +12,7 @@ export interface Kantong {
   saldo_awal: number;
   warna: string;
   target_saldo: number | null;
+  urutan: number;
   created_at: string;
 }
 
@@ -59,3 +60,12 @@ export interface Aset {
   keterangan: string | null;
   created_at: string;
 }
+
+export interface Kategori {
+  id: string;
+  user_id: string;
+  jenis: 'Pemasukan' | 'Pengeluaran';
+  nama_kategori: string;
+  created_at: string;
+}
+
