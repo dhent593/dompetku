@@ -1040,6 +1040,10 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                   const isDragging = activeDragId === p.id;
                   const isJiggling = isReorderMode && activeDragId !== p.id;
 
+                  const isAssetBound = assets.some(
+                    (a) => a.kategori === 'Tabungan & Simpanan' && a.nama === p.nama
+                  );
+
                   return (
                     <div
                       key={p.id}
@@ -1060,9 +1064,16 @@ export default function Dashboard({ session, onLogout }: DashboardProps) {
                       }}
                     >
                       <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
-                      <p className="text-[10px] font-medium opacity-80 mb-1 truncate max-w-[100px]">
-                        {p.nama}
-                      </p>
+                      <div className="flex items-center justify-between mb-1 gap-1">
+                        <p className="text-[10px] font-medium opacity-80 truncate max-w-[80px]">
+                          {p.nama}
+                        </p>
+                        {isAssetBound && (
+                          <span className="text-[7px] bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider whitespace-nowrap">
+                            Aset
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm font-bold">{formatRp(balance)}</p>
 
                       {target > 0 && (
